@@ -17,7 +17,8 @@ pkgname=$(opam show -f name "$opamfile")
 pkgver=$(opam show -f version "$opamfile")
 pkg=${pkgname}.${pkgver}
 
-opam switch create "$switch" --empty || test $(opam switch --switch "$switch" invariant) = "[]"
+opam switch remove "$switch"
+opam switch create "$switch" --empty
 opam pin add --switch "$switch" -yn -k path "$pkg" $(dirname "$opamfile")
 
 depends=$(opam list --switch "$switch" --required-by "$pkg" --all-versions -s)
@@ -29,6 +30,7 @@ internal_failures=
 for dep in $depends ; do
   res=0
   opam install --switch "$switch" -y "$dep" "$pkg" || res=$?
+  opam remove --switch "$switch" -ya "$dep" "$pkg"
   case "$res" in
   0) success="$success $dep" ;;
   20) skip="$skip $dep" ;;
