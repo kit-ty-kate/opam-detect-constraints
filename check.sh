@@ -30,7 +30,7 @@ internal_failures=
 for dep in $depends ; do
   res=0
   opam install --switch "$switch" -y "$dep" "$pkg" || res=$?
-  opam remove --switch "$switch" -ya "$dep" "$pkg"
+  opam remove --switch "$switch" -y $(opam list --switch "$switch" --installed -s)
   case "$res" in
   0) success="$success $dep" ;;
   20) skip="$skip $dep" ;;
