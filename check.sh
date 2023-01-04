@@ -1,52 +1,59 @@
 #!/bin/sh
 
 set -e
-#set -o pipefail
+set -o pipefail
 
-if test $# -ne 0 ; then
+if test $# -ne 1 ; then
   echo "Usage: $0 OPAMFILE"
   exit 1
 fi
 
-opamfile=./$1
+opamfile=$1
 shift
 
-# TODO: Does not support complex dependencies (OR, explicit AND)
-depends=$(opam show -f depends "$opamfile" | sed -E -e 's/ .*//' -e 's/.*"(.*)".*/\1/')
+switch=$(dirname "$opamfile")
 
-criteria="+removed,+count[version-lag,solution]"
+pkgname=$(opam show -f name "$opamfile")
+pkgver=$(opam show -f version "$opamfile")
+pkg=${pkgname}.${pkgver}
 
-export OPAMCRITERIA=$criteria
-export OPAMFIXUPCRITERIA=$criteria
-export OPAMUPGRADECRITERIA=$criteria
-export OPAMEXTERNALSOLVER=builtin-0install
+opam switch create "$switch" --empty || test $(opam switch --switch "$switch" invariant) = "[]"
+opam pin add --switch "$switch" -yn -k path "$pkg" $(dirname "$opamfile")
 
-opam switch create . --empty
+depends=$(opam list --switch "$switch" --required-by "$pkg" --all-versions -s)
 
 success=
+skip=
 failed=
 internal_failures=
 for dep in $depends ; do
-  for ver in $(opam show -f all-versions "$dep") ; do
-    pkg=${dep}.${ver}
-    opam install "$opamfile" "$pkg"; res=$?
-    case "$res" in
-    0) success="$success $pkg" ;;
-    20) ;;
-    31) failed="$failed $pkg" ;;
-    *) internal_failures="${internal_failures} $pkg" ;;
-    esac
-  done
+  res=0
+  opam install --switch "$switch" -y "$opamfile" "$dep" "$pkg" || res=$?
+  case "$res" in
+  0) success="$success $dep" ;;
+  20) skip="$skip $dep" ;;
+  31) failed="$failed $dep" ;;
+  *) internal_failures="${internal_failures} $dep" ;;
+  esac
 done
 
 echo
-echo "This package succeeded with:"
+echo "----------------------"
+
+echo
+echo "These packages were skipped:"
+for pkg in $skip ; do
+  echo "  - $pkg"
+done
+
+echo
+echo "These packages succeeded:"
 for pkg in $success ; do
   echo "  - $pkg"
 done
 
 echo
-echo "This package failed with:"
+echo "These packages failed:"
 for pkg in $failed ; do
   echo "  - $pkg"
 done
