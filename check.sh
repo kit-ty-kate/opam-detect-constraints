@@ -28,7 +28,7 @@ failed=
 internal_failures=
 for dep in $depends ; do
   res=0
-  opam install --switch "$switch" -y "$opamfile" "$dep" "$pkg" || res=$?
+  opam install --switch "$switch" -y "$dep" "$pkg" || res=$?
   case "$res" in
   0) success="$success $dep" ;;
   20) skip="$skip $dep" ;;
